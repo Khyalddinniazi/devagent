@@ -47,6 +47,16 @@ protections on top of devagent's own (sandbox, guard, secret scan; see [THREAT_M
 
 Plans and agent notes are uploaded as a workflow artifact (`devagent-run`) for review.
 
+## Verified live
+
+2026-11-07, on a practice repository: the issue "Add an is_palindrome(text) function" was labelled
+`devagent`, and the Action opened a PR with the function and 6 new tests that says `Closes #1`. It also
+commented the link on the issue. The run took 1 min 25 s and cost $0.41.
+
+The first live attempt failed, which led to two fixes: the runner had no `pytest`, and the Debugger
+spent three attempts trying to fix code that wasn't broken. devagent now stops early when the test
+runner can't start.
+
 ## Limits
 
 - **Test tools:** the project's tests run with devagent's own Python, which comes with `pytest`. If your

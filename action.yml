@@ -56,6 +56,8 @@ runs:
         exit 1
 
     - uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: false # the workflow token can't write caches (least privilege)
 
     - name: Install devagent
       shell: bash
