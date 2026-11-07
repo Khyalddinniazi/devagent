@@ -1,0 +1,3 @@
+project = "shop"
+category = "feature"
+prompt = """Add Cart.to_dict() and a classmethod Cart.from_dict(data) to shop/cart.py so a cart can be saved as JSON and loaded again. to_dict() returns {'items': [{'sku': ..., 'price': ..., 'qty': ...}, ...], 'discount_percent': ...} with items in insertion order, using only JSON-compatible types. from_dict(to_dict()) must give an equal cart."""

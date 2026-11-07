@@ -24,3 +24,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+# benchmark scratch dirs
+bench/.work/

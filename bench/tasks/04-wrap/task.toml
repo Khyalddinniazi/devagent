@@ -1,0 +1,3 @@
+project = "textkit"
+category = "feature"
+prompt = """Add wrap(text, width) to textkit/text.py that returns a list of lines. Words are separated by any whitespace and joined with single spaces. Pack as many words per line as fit within width characters. A word longer than width goes on its own line, unbroken. Empty or whitespace-only text returns []. Raise ValueError if width < 1."""

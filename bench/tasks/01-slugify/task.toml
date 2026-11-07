@@ -1,0 +1,3 @@
+project = "textkit"
+category = "feature"
+prompt = """Add a slugify(text) function to textkit/text.py. It lowercases the text, removes accents (so 'é' becomes 'e'), replaces every run of characters that aren't letters or digits with a single '-', and strips leading and trailing '-'. Example: 'Héllo World!' -> 'hello-world'."""

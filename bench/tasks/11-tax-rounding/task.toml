@@ -1,0 +1,3 @@
+project = "shop"
+category = "feature"
+prompt = """Add an optional tax_rate parameter to Cart.total() in shop/cart.py (for example 0.08 for 8%, default 0). Tax is applied after the discount. The result must be rounded to cents with round-half-up (use decimal.Decimal), so an exact half cent like 10.125 becomes 10.13. Calling total() with no argument must keep working as before."""

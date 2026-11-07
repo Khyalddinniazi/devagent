@@ -160,8 +160,8 @@ The artifacts of each run (plan, each agent's summary, test report, debug log, s
 make check     # ruff lint + format check, mypy, pytest
 ```
 
-89 tests cover the pipeline (with a scripted fake runner), guards, test parsing, secret scanning, git
-operations against temporary repos, real `sandbox-exec` checks and the red-team suite. None of them
+107 tests cover the pipeline (with a scripted fake runner), guards, test parsing, secret scanning, git
+operations against temporary repos, real `sandbox-exec` checks, the red-team suite and the fairness of every benchmark task. None of them
 call the API. CI runs everything on Linux and macOS.
 
 ## Limitations
@@ -172,7 +172,7 @@ call the API. CI runs everything on Linux and macOS.
 
 ## Roadmap
 
-- [ ] Benchmark: success rate, cost and time over a set of real tasks
+- [ ] Benchmark results: the harness and 15 graded tasks are in [bench/](bench/); results come from real runs only
 - [ ] GitHub Action: label an issue → devagent opens a PR
 - [ ] Docker runner, which also gives sandboxed test runs on Linux
 

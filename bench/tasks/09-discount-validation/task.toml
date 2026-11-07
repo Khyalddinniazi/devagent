@@ -1,0 +1,3 @@
+project = "shop"
+category = "bugfix"
+prompt = """Bug report: Cart.apply_discount in shop/cart.py accepts any number, so a 150% discount makes the total negative. It should raise ValueError for percentages below 0 or above 100 and leave the existing discount unchanged in that case. 0 and 100 are valid."""

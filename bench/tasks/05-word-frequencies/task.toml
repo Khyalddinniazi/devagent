@@ -1,0 +1,3 @@
+project = "textkit"
+category = "feature"
+prompt = """Add word_frequencies(text) to textkit/text.py. It returns a dict mapping each word to how many times it appears. Words are runs of letters, digits and apostrophes, compared case-insensitively and returned in lower case. Punctuation is not part of a word."""

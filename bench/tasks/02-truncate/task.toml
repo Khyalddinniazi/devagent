@@ -1,0 +1,3 @@
+project = "textkit"
+category = "feature"
+prompt = """Add truncate(text, max_len, suffix='...') to textkit/text.py. If text fits in max_len characters, return it unchanged. Otherwise cut it and append the suffix so the result is exactly max_len characters long (suffix included). Raise ValueError if the text must be cut and max_len is smaller than the suffix length."""

@@ -1,0 +1,3 @@
+project = "textkit"
+category = "feature"
+prompt = """Add camel_to_snake(name) to textkit/text.py that converts camelCase or PascalCase identifiers to snake_case. Runs of capitals are treated as one word (acronyms). Examples: 'parseHTTPResponse' -> 'parse_http_response', 'CamelCase' -> 'camel_case', 'getID' -> 'get_id', 'already_snake' is unchanged."""

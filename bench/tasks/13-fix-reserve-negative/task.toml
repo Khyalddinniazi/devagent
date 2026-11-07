@@ -1,0 +1,3 @@
+project = "shop"
+category = "bugfix"
+prompt = """Bug report: Inventory.reserve() in shop/inventory.py lets stock go negative. It should raise OutOfStock (already defined in that file) when n is more than what's available, and leave the stock unchanged in that case. n must be at least 1, otherwise raise ValueError."""

@@ -1,0 +1,3 @@
+project = "shop"
+category = "feature"
+prompt = """Add Inventory.low_stock(threshold) to shop/inventory.py. It returns an alphabetically sorted list of the SKUs that have ever been restocked and whose available stock is now below threshold (SKUs at 0 count)."""
