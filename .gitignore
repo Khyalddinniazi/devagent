@@ -1,0 +1,26 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+
+# Tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# devagent run artifacts
+.devagent/
+
+# Local editor / OS / Claude Code settings
+.DS_Store
+.claude/
+.vscode/
+.idea/
+
+# Secrets (never commit)
+.env
+.env.*
+!.env.example

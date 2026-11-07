@@ -1,0 +1,57 @@
+[project]
+name = "devagent"
+version = "0.1.0"
+description = "Multi-agent CLI that plans, codes, tests, debugs and deploys features with the Claude Agent SDK"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Khyalddinniazi" }]
+requires-python = ">=3.10"
+keywords = ["ai-agents", "claude", "agent-sdk", "devtools", "llm", "security"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Environment :: Console",
+  "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+  "claude-agent-sdk>=0.2",
+  "typer>=0.12",
+  "rich>=13",
+  "pydantic>=2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.6", "mypy>=1.10"]
+
+[project.scripts]
+devagent = "devagent.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["devagent*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "S"]
+ignore = ["S101", "S602", "S603", "S607", "S404"]  # asserts in tests; subprocess use is deliberate and reviewed
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S", "B"]
+"devagent/cli.py" = ["B008"]  # typer declares options as default values by design
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true
+check_untyped_defs = true
