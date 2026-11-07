@@ -69,15 +69,20 @@ def test_sandbox_blocks_network_and_outside_writes(tmp_path):
 
 @needs_sandbox
 def test_sandbox_allows_localhost(tmp_path):
+    # Plain sockets on purpose: http.server.HTTPServer does a DNS lookup (getfqdn) at startup, which
+    # hangs inside the no-network sandbox on some machines (seen on GitHub's macOS runners).
     script = tmp_path / "srv.py"
     script.write_text(
-        "import http.server, threading, urllib.request\n"
-        "s = http.server.HTTPServer(('127.0.0.1', 0), http.server.SimpleHTTPRequestHandler)\n"
-        "threading.Thread(target=s.serve_forever, daemon=True).start()\n"
-        "print(urllib.request.urlopen(f'http://127.0.0.1:{s.server_port}/').status)\n"
+        "import socket, threading\n"
+        "srv = socket.socket(); srv.bind(('127.0.0.1', 0)); srv.listen(1)\n"
+        "def serve():\n"
+        "    conn, _ = srv.accept(); conn.sendall(b'ok'); conn.close()\n"
+        "threading.Thread(target=serve, daemon=True).start()\n"
+        "c = socket.create_connection(('127.0.0.1', srv.getsockname()[1]), timeout=5)\n"
+        "print(c.recv(2).decode())\n"
     )
     r = _sb(f"{sys.executable} {script}", tmp_path)
-    assert r.stdout.strip() == "200", r.stderr
+    assert r.stdout.strip() == "ok", r.stderr
 
 
 @needs_sandbox

@@ -18,8 +18,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
       - name: Install
         run: uv venv -p 3.12 .venv && uv pip install -p .venv -e ".[dev]"
       - name: make check
