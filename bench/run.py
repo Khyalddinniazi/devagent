@@ -143,7 +143,7 @@ def run_task(task: Task, work: Path, max_cost: float, model: str | None, timeout
         duration_s=round(duration, 1),
         debug_attempts=state.get("debug_attempts", 0),
         turns=sum(c.get("turns", 0) for c in costs),
-        hidden=report.summary(),
+        hidden=report.summary().split(" via ")[0],  # drop the local command path
         error=error,
     )
 

@@ -42,4 +42,23 @@ logs are kept in `.work/` for inspection.
 
 ## Results
 
-No results yet. Numbers will appear here only from real runs, never estimated.
+Run on 2026-11-07, model `claude-opus-5-5`, spending limit $2 per task
+([full table](results/20261107-144315.md), [raw data](results/20261107-144315.json)):
+
+| Metric | Value |
+|---|---|
+| **Solved (hidden tests pass)** | **15/15 (100%)**: 10/10 features, 5/5 bug fixes |
+| Total cost | $6.05 |
+| Cost per task (median / max) | $0.39 / $0.48 |
+| Time per task (median / max) | 1.2 / 1.5 min |
+| False success | 0 |
+| Needed the debug loop | 0/15 |
+
+A manual check of every run confirmed that no original test was deleted or weakened (the only removed
+lines were import lines that were extended) and that devagent added its own tests in all 15 runs.
+
+**What this does and doesn't show.** These are small tasks of one or two functions, each with a
+precise specification. The 100% score shows the pipeline works reliably and cheaply at this level,
+but it's a ceiling: the benchmark is too easy to tell stronger and weaker setups apart, and the debug
+loop was never needed, so it isn't measured here (it's covered by the unit tests). A harder tier
+(multi-file changes, vaguer bug reports, larger codebases) is the next step.

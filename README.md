@@ -87,6 +87,18 @@ processes) and checks that it's contained. A control run confirms that the same 
 without the sandbox**, so the sandbox really is what stops them. Known gaps in the guard are pinned
 by tests too, so the documentation can't go stale.
 
+## Benchmark
+
+15 coding tasks (10 features, 5 bug fixes), each graded by **hidden tests that devagent never sees**.
+Every task is checked in CI to be fair: the hidden tests fail before the change and pass with a reference
+solution. Details and method: [bench/](bench/).
+
+| Solved | Total cost | Cost per task (median) | Time per task (median) | False success |
+|---|---|---|---|---|
+| **15/15** | $6.05 | $0.39 | 1.2 min | 0 |
+
+These are small, well-specified tasks, so 100% is a ceiling rather than a ranking. A harder tier is on the roadmap.
+
 ## Quick start
 
 Requirements: macOS or Linux, Python ≥ 3.10, [uv](https://docs.astral.sh/uv/), the
@@ -172,7 +184,8 @@ call the API. CI runs everything on Linux and macOS.
 
 ## Roadmap
 
-- [ ] Benchmark results: the harness and 15 graded tasks are in [bench/](bench/); results come from real runs only
+- [x] Benchmark with hidden tests: 15/15 solved, $0.39 median per task
+- [ ] Harder benchmark tier: multi-file changes, vague bug reports, larger codebases
 - [ ] GitHub Action: label an issue → devagent opens a PR
 - [ ] Docker runner, which also gives sandboxed test runs on Linux
 

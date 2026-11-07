@@ -1,0 +1,23 @@
+{
+  "meta": {
+    "date": "20261107-144036",
+    "model": "claude-opus-5-5",
+    "max_cost": 2.0,
+    "tasks": 1
+  },
+  "results": [
+    {
+      "task": "01-slugify",
+      "category": "feature",
+      "solved": true,
+      "claimed_pass": true,
+      "stage": "ready",
+      "cost_usd": 0.5509,
+      "duration_s": 73.7,
+      "debug_attempts": 0,
+      "turns": 19,
+      "hidden": "PASSED (11 passed)",
+      "error": null
+    }
+  ]
+}
