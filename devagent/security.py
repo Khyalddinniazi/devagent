@@ -11,10 +11,13 @@ Defense in depth, one layer per risk:
 from __future__ import annotations
 
 import fnmatch
+import functools
 import json
+import os
 import re
 import shlex
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -153,6 +156,69 @@ def os_sandbox_available() -> bool:
 def wrap_in_sandbox(command: str, repo: Path) -> str:
     """Return `command` wrapped so it runs with no network and writes confined to the repo."""
     return f"sandbox-exec -p {shlex.quote(sandbox_profile(repo))} /bin/sh -c {shlex.quote(command)}"
+
+
+# --------------------------------------------------------------------------- test sandbox (Docker, any OS)
+TEST_SANDBOXES = ("auto", "sandbox-exec", "docker", "none")
+DEFAULT_TEST_IMAGE = "devagent-tests:latest"  # built from docker/tests.Dockerfile (`make docker-image`)
+
+
+@functools.cache
+def docker_available() -> bool:
+    if shutil.which("docker") is None:
+        return False
+    try:
+        return subprocess.run(["docker", "info"], capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+def docker_image_exists(image: str) -> bool:
+    return subprocess.run(["docker", "image", "inspect", image], capture_output=True).returncode == 0
+
+
+def pick_test_sandbox(mode: str | bool) -> str:
+    """Resolve "auto" to the strongest sandbox this machine has: sandbox-exec (macOS), then Docker."""
+    if mode is False or mode == "none":
+        return "none"
+    if mode is True or mode == "auto":
+        if os_sandbox_available():
+            return "sandbox-exec"
+        return "docker" if docker_available() else "none"
+    if mode not in TEST_SANDBOXES:
+        raise ValueError(f"unknown test sandbox {mode!r}; choose one of {', '.join(TEST_SANDBOXES)}")
+    return mode
+
+
+def wrap_in_docker(command: str, repo: Path, image: str = DEFAULT_TEST_IMAGE) -> str:
+    """Run `command` in a throwaway container that can see nothing but the repo.
+
+    No network, a read-only filesystem except the repo and /tmp, no Linux capabilities, no privilege
+    escalation, and none of the host's environment variables, home folder or credentials.
+    """
+    uid, gid = (os.getuid(), os.getgid()) if hasattr(os, "getuid") else (1000, 1000)
+    # A Python path from the host (venv or sys.executable) doesn't exist in the container.
+    command = re.sub(r"^\S*python[\d.]*(?=\s+-m\s)", "python", command)
+    args = [
+        "docker", "run", "--rm",
+        "--network", "none",
+        "--read-only", "--tmpfs", "/tmp:rw,exec,size=512m",  # noqa: S108 - private tmpfs inside the container
+        "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+        "--pids-limit", "512", "--memory", "2g",
+        "--user", f"{uid}:{gid}",
+        "-e", "HOME=/tmp", "-e", "PYTHONDONTWRITEBYTECODE=1",
+        "-v", f"{repo.resolve()}:/work", "-w", "/work",
+        image, "sh", "-c", command,
+    ]  # fmt: skip
+    return shlex.join(args)
+
+
+_SECRET_ENV = re.compile(r"(TOKEN|SECRET|PASSWORD|PASSWD|API_?KEY|ACCESS_KEY|PRIVATE_KEY|CREDENTIAL)", re.I)
+
+
+def scrubbed_env() -> dict[str, str]:
+    """The current environment without anything that looks like a secret, for running untrusted tests."""
+    return {k: v for k, v in os.environ.items() if not _SECRET_ENV.search(k)}
 
 
 # --------------------------------------------------------------------------- secret scanning before commit

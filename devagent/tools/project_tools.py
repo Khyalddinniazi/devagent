@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shlex
 import subprocess
@@ -14,7 +13,16 @@ from typing import Any
 
 from claude_agent_sdk import McpSdkServerConfig, create_sdk_mcp_server, tool
 
-from ..security import os_sandbox_available, wrap_in_sandbox
+from ..security import (
+    DEFAULT_TEST_IMAGE,
+    docker_available,
+    docker_image_exists,
+    os_sandbox_available,
+    pick_test_sandbox,
+    scrubbed_env,
+    wrap_in_docker,
+    wrap_in_sandbox,
+)
 
 TOOL_SERVER_NAME = "devagent"
 RUN_TESTS_TOOL = f"mcp__{TOOL_SERVER_NAME}__run_tests"
@@ -40,6 +48,7 @@ class TestReport:
     raw_tail: str = ""
     skipped: bool = False  # no real test suite was run - nothing was verified
     sandboxed: bool = False
+    sandbox_kind: str = "none"  # sandbox-exec | docker | none
     environment_error: str | None = None  # the test runner itself couldn't start (not a code problem)
 
     def to_json(self) -> str:
@@ -118,14 +127,37 @@ def skipped_report(command: str = "<none>") -> TestReport:
     return TestReport(command=command, passed=True, exit_code=0, skipped=True)
 
 
-def run_tests(repo: Path, command: str | None = None, timeout: int = 900, sandbox: bool = True) -> TestReport:
+def _setup_error(command: str, message: str) -> TestReport:
+    return TestReport(command=command, passed=False, exit_code=-1, environment_error=message)
+
+
+def run_tests(
+    repo: Path,
+    command: str | None = None,
+    timeout: int = 900,
+    sandbox: bool | str = True,
+    image: str = DEFAULT_TEST_IMAGE,
+) -> TestReport:
+    """Run the test suite. `sandbox`: True/"auto" picks the strongest available, or name one explicitly."""
     command = command or detect_test_command(repo)
     if not command or command.strip() in NO_OP_COMMANDS:
         return skipped_report(command or "<none>")
-    use_sandbox = sandbox and os_sandbox_available()
-    to_run = wrap_in_sandbox(command, repo) if use_sandbox else command
+    kind = pick_test_sandbox(sandbox)
+    if kind == "sandbox-exec":
+        if not os_sandbox_available():
+            return _setup_error(command, "sandbox-exec is only available on macOS")
+        to_run = wrap_in_sandbox(command, repo)
+    elif kind == "docker":
+        if not docker_available():
+            return _setup_error(command, "Docker is not installed or not running")
+        if not docker_image_exists(image):
+            return _setup_error(command, f"test image {image} not found; build it with `make docker-image`")
+        to_run = wrap_in_docker(command, repo, image)
+    else:
+        to_run = command
     try:
-        env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+        # Tests are code an agent may have written: they never see the host's tokens and keys.
+        env = {**scrubbed_env(), "PYTHONDONTWRITEBYTECODE": "1"}
         proc = subprocess.run(to_run, shell=True, cwd=repo, capture_output=True, text=True, timeout=timeout, env=env)
     except subprocess.TimeoutExpired as e:
         out = (e.stdout or "") if isinstance(e.stdout, str) else ""
@@ -137,11 +169,14 @@ def run_tests(repo: Path, command: str | None = None, timeout: int = 900, sandbo
             failures=[Failure("<timeout>", f"tests exceeded {timeout}s")],
         )
     report = _parse(command, proc.returncode, proc.stdout + "\n" + proc.stderr)
-    report.sandboxed = use_sandbox
+    report.sandboxed = kind != "none"
+    report.sandbox_kind = kind
     return report
 
 
-def build_tool_server(repo: Path, command: str | None, timeout: int, sandbox: bool = True) -> McpSdkServerConfig:
+def build_tool_server(
+    repo: Path, command: str | None, timeout: int, sandbox: bool | str = True, image: str = DEFAULT_TEST_IMAGE
+) -> McpSdkServerConfig:
     @tool(
         "run_tests",
         "Run the project's test suite and return structured JSON: passed, counts, failures[{test,message}], "
@@ -151,7 +186,7 @@ def build_tool_server(repo: Path, command: str | None, timeout: int, sandbox: bo
     async def _run_tests(args: dict[str, Any]) -> dict[str, Any]:
         base = command or detect_test_command(repo)
         extra = (args or {}).get("args") or ""
-        report = run_tests(repo, f"{base} {extra}".strip() if base else None, timeout, sandbox)
+        report = run_tests(repo, f"{base} {extra}".strip() if base else None, timeout, sandbox, image)
         return {"content": [{"type": "text", "text": report.to_json()}]}
 
     return create_sdk_mcp_server(TOOL_SERVER_NAME, tools=[_run_tests])

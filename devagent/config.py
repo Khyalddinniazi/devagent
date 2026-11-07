@@ -7,6 +7,8 @@ from pathlib import Path
 import tomllib
 from pydantic import BaseModel, Field
 
+from .security import DEFAULT_TEST_IMAGE
+
 DEFAULT_MODEL = "claude-opus-5-5"
 
 
@@ -28,6 +30,8 @@ class Config(BaseModel):
     max_cost_usd: float = 5.0  # hard spending cap for one run (all stages together)
     sandbox: bool = True  # run agent Bash inside the OS sandbox
     sandbox_tests: bool = True  # run test commands inside macOS sandbox-exec (no network)
+    test_sandbox: str = "auto"  # auto | sandbox-exec | docker | none (auto = macOS sandbox, else Docker)
+    test_image: str = DEFAULT_TEST_IMAGE  # Docker image for sandboxed test runs
     allowed_domains: list[str] = Field(default_factory=list)  # network allowlist for sandboxed agent Bash
     trust_project: bool = False  # load the repo's own .claude settings / CLAUDE.md
     write_tests_without_framework: bool = False  # let the Tester invent a test setup when the repo has none

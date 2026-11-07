@@ -84,7 +84,7 @@ analysis is in **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)**: assets, threat 
 | Risk | Protection |
 |---|---|
 | A tricked agent runs harmful commands | Agent commands run in the **Claude Code OS sandbox**: writes only inside the repo, **no network**, no sandbox escape. A guard hook also blocks `git push`, `gh`, `sudo`, `rm -rf` outside the repo, `curl \| sh` and more |
-| Tests run code an agent could have planted | Test commands run inside **macOS `sandbox-exec`**: no internet (localhost allowed), limited writes, credential folders unreadable |
+| Tests run code an agent could have planted | Tests run in a sandbox: **macOS `sandbox-exec`**, or a **locked-down Docker container** on Linux (no network, read-only except the repo, nothing from your machine inside). Tokens and keys are removed from the tests' environment |
 | Prompt injection | All file content is treated as data. Attempts are reported as `INJECTION-ALERT:` and shown at the deploy prompt. Web tools are disabled |
 | A malicious repo ships its own `.claude` settings or hooks | Not loaded unless you pass `--trust-project` |
 | Credential theft | `~/.ssh`, `~/.aws`, `~/.config/gh`, the Keychain, `.env*` and key files are blocked by the guard, the sandbox and permission deny rules |
@@ -159,6 +159,7 @@ devagent resume <run-id> --repo ...     # continue from the last completed stage
 | `--max-debug N` | Debugger attempts before giving up (default 3) |
 | `--base BRANCH` · `--test-command CMD` · `--model ID` | Override detection and defaults |
 | `--max-cost USD` | Spending limit for the whole run (default 5) |
+| `--test-sandbox MODE` | Where tests run: `auto` (default: sandbox-exec on macOS, else Docker), `sandbox-exec`, `docker`, `none` |
 | `--allow-network DOMAIN` | Let agents reach one domain, for example `pypi.org` (repeatable) |
 | `--allow-untested` | With `--yes`, allow deploying when there's no test suite |
 | `--trust-project` | Load the repo's own `.claude` settings |
@@ -203,14 +204,14 @@ The artifacts of each run (plan, each agent's summary, test report, debug log, s
 make check     # ruff lint + format check, mypy, pytest
 ```
 
-112 tests cover the pipeline (with a scripted fake runner), guards, test parsing, secret scanning, git
-operations against temporary repos, real `sandbox-exec` checks, the red-team suite, the fairness of every benchmark task, and the GitHub Action's injection defences. None of them
+127 tests cover the pipeline (with a scripted fake runner), guards, test parsing, secret scanning, git
+operations against temporary repos, real `sandbox-exec` and Docker checks, the red-team suite (run against both sandboxes), the fairness of every benchmark task, and the GitHub Action's injection defences. None of them
 call the API. CI runs everything on Linux and macOS.
 
 ## Limitations
 
 - Your code is sent to Anthropic's API so Claude can work on it. Only run devagent on code you're allowed to share.
-- The test sandbox (`sandbox-exec`) is macOS-only. On Linux, agent commands are still sandboxed, but test runs aren't.
+- Test runs are sandboxed with `sandbox-exec` (macOS) or Docker (`make docker-image`). Without either, they run unsandboxed and devagent warns you.
 - Prompt injection can't be fully prevented. devagent limits what a hijacked agent can reach, and you review the plan, the file list and the PR.
 
 ## Roadmap
@@ -218,7 +219,8 @@ call the API. CI runs everything on Linux and macOS.
 - [x] Benchmark with hidden tests: 15/15 solved, $0.39 median per task
 - [ ] Harder benchmark tier: multi-file changes, vague bug reports, larger codebases
 - [x] GitHub Action: label an issue → devagent opens a PR
-- [ ] Docker runner, which also gives sandboxed test runs on Linux
+- [x] Docker test sandbox, so test runs are sandboxed on Linux too
+- [ ] Verify the agent sandbox on Linux runners, so the GitHub Action can run on cheaper Linux machines
 
 ## License
 

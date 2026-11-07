@@ -14,6 +14,7 @@ from . import deploy
 from .config import Config
 from .pipeline import Pipeline
 from .runner import SDKRunner
+from .security import TEST_SANDBOXES, pick_test_sandbox
 from .state import STATE_DIR, RunState, Stage
 
 app = typer.Typer(add_completion=False, help="Multi-agent pipeline: plan → code → test → debug → PR.")
@@ -31,8 +32,17 @@ def _auto_deploy_gate(state, console, status, stat):
 
 
 def _apply_safety_options(
-    config: Config, max_cost: float | None, trust_project: bool, allow_network: list[str] | None, no_sandbox: bool
+    config: Config,
+    max_cost: float | None,
+    trust_project: bool,
+    allow_network: list[str] | None,
+    no_sandbox: bool,
+    test_sandbox: str | None = None,
 ) -> None:
+    if test_sandbox:
+        if test_sandbox not in TEST_SANDBOXES:
+            raise typer.BadParameter(f"choose one of {', '.join(TEST_SANDBOXES)}", param_hint="--test-sandbox")
+        config.test_sandbox = test_sandbox
     if max_cost is not None:
         config.max_cost_usd = max_cost
     if trust_project:
@@ -47,9 +57,17 @@ def _safety_banner(config: Config) -> None:
     sandbox = "[green]on[/]" if config.sandbox else "[bold red]OFF[/]"
     net = ", ".join(config.allowed_domains) if config.allowed_domains else "blocked"
     project = "[yellow]trusted (repo settings loaded)[/]" if config.trust_project else "untrusted (repo settings ignored)"
+    tests_kind = pick_test_sandbox(config.test_sandbox if config.sandbox_tests else "none")
+    tests = f"[green]{tests_kind}[/]" if tests_kind != "none" else "[bold red]none[/]"
     console.print(
-        f"[dim]safety: sandbox {sandbox} · network {net} · spending limit ${config.max_cost_usd:.2f} · project {project}[/]"
+        f"[dim]safety: sandbox {sandbox} · test sandbox {tests} · network {net} · "
+        f"spending limit ${config.max_cost_usd:.2f} · project {project}[/]"
     )
+    if config.sandbox and tests_kind == "none":
+        console.print(
+            "[bold yellow]⚠️  No test sandbox on this machine: tests run with your permissions (no secrets in their "
+            "environment). Install Docker and run `make docker-image` to sandbox them.[/]"
+        )
     if not config.sandbox:
         console.print("[bold red]⚠️  Sandbox is OFF - agents run commands with your full user permissions.[/]")
 
@@ -102,6 +120,9 @@ def run(
     allow_untested: bool = typer.Option(False, "--allow-untested", help="With --yes: allow deploying when nothing was tested"),
     no_sandbox: bool = typer.Option(False, "--no-sandbox", help="DANGEROUS: run agent commands and tests unsandboxed"),
     pr_note: str | None = typer.Option(None, "--pr-note", help='Text added to the PR body, e.g. "Closes #12"'),
+    test_sandbox: str | None = typer.Option(
+        None, "--test-sandbox", help="Where tests run: auto (default), sandbox-exec, docker or none"
+    ),
 ):
     """Run the full pipeline for TASK. Put -- before a TASK that comes from untrusted text."""
     repo = repo.resolve()
@@ -114,7 +135,7 @@ def run(
     if model:
         for stage in ("planner", "coder", "tester", "debugger", "writer"):
             getattr(config, stage).model = model
-    _apply_safety_options(config, max_cost, trust_project, allow_network, no_sandbox)
+    _apply_safety_options(config, max_cost, trust_project, allow_network, no_sandbox, test_sandbox)
     state = RunState.new(task, repo)
     console.print(f"[bold]devagent[/] run [cyan]{state.run_id}[/] in {repo}")
     _execute(state, config, yes, not no_deploy, verbose, allow_untested)

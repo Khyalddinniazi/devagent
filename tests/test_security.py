@@ -93,3 +93,63 @@ def test_run_tests_is_sandboxed(tmp_path):
     )
     r = run_tests(tmp_path, f"{sys.executable} -m pytest -q -rf -p no:cacheprovider")
     assert r.sandboxed and not r.passed
+
+
+# ---------------------------------------------------------------------------- Docker test sandbox
+def test_wrap_in_docker_locks_the_container_down(tmp_path):
+    import shlex
+
+    from devagent.security import wrap_in_docker
+
+    args = shlex.split(wrap_in_docker("/Users/me/proj/.venv/bin/python -m pytest -q", tmp_path, "img:1"))
+    joined = " ".join(args)
+    for flag in ["--network none", "--read-only", "--cap-drop ALL", "--security-opt no-new-privileges", "--rm"]:
+        assert flag in joined, flag
+    assert f"{tmp_path.resolve()}:/work" in args and args.count("-v") == 1  # only the repo is mounted
+    assert "--env-file" not in args and not any(a.startswith("GH_") or "TOKEN" in a for a in args)  # no host secrets
+    assert args[-3:] == ["sh", "-c", "python -m pytest -q"]  # the host Python path is rewritten
+
+
+def test_pick_test_sandbox(monkeypatch):
+    import pytest
+
+    from devagent import security
+
+    monkeypatch.setattr(security, "os_sandbox_available", lambda: False)
+    monkeypatch.setattr(security, "docker_available", lambda: True)
+    assert security.pick_test_sandbox("auto") == "docker"
+    monkeypatch.setattr(security, "docker_available", lambda: False)
+    assert security.pick_test_sandbox(True) == "none"
+    assert security.pick_test_sandbox(False) == "none"
+    monkeypatch.setattr(security, "os_sandbox_available", lambda: True)
+    assert security.pick_test_sandbox("auto") == "sandbox-exec"
+    with pytest.raises(ValueError):
+        security.pick_test_sandbox("chroot")
+
+
+def test_scrubbed_env_drops_secrets(monkeypatch):
+    from devagent.security import scrubbed_env
+
+    for k in ["GH_TOKEN", "ANTHROPIC_API_KEY", "AWS_SECRET_ACCESS_KEY", "DB_PASSWORD", "CLAUDE_CODE_OAUTH_TOKEN"]:
+        monkeypatch.setenv(k, "x")
+    monkeypatch.setenv("PATH_EXTRA", "keep")
+    env = scrubbed_env()
+    assert "PATH_EXTRA" in env and "PATH" in env
+    assert not {"GH_TOKEN", "ANTHROPIC_API_KEY", "AWS_SECRET_ACCESS_KEY", "DB_PASSWORD", "CLAUDE_CODE_OAUTH_TOKEN"} & set(env)
+
+
+def test_requested_docker_without_docker_is_a_setup_error(tmp_path, monkeypatch):
+    from devagent.tools import project_tools
+
+    monkeypatch.setattr(project_tools, "docker_available", lambda: False)
+    r = run_tests(tmp_path, "pytest -q", sandbox="docker")
+    assert not r.passed and "Docker is not installed or not running" in r.environment_error
+
+
+def test_missing_test_image_is_a_setup_error(tmp_path, monkeypatch):
+    from devagent.tools import project_tools
+
+    monkeypatch.setattr(project_tools, "docker_available", lambda: True)
+    monkeypatch.setattr(project_tools, "docker_image_exists", lambda image: False)
+    r = run_tests(tmp_path, "pytest -q", sandbox="docker", image="nope:1")
+    assert "make docker-image" in r.environment_error

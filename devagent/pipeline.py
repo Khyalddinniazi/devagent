@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 import subprocess
@@ -98,7 +99,7 @@ class Pipeline:
         console: Console | None = None,
         plan_gate: PlanGate = interactive_plan_gate,
         deploy_gate: DeployGate = interactive_deploy_gate,
-        test_fn: TestFn = run_tests,
+        test_fn: TestFn | None = None,  # default: run_tests with the configured test sandbox
         deploy_enabled: bool = True,
         allow_untested_deploy: bool = True,  # False with --yes: never auto-ship code nobody verified
     ):
@@ -108,7 +109,8 @@ class Pipeline:
         self.console = console or Console()
         self.plan_gate = plan_gate
         self.deploy_gate = deploy_gate
-        self.test_fn = test_fn
+        test_sandbox = config.test_sandbox if config.sandbox_tests else "none"
+        self.test_fn = test_fn or functools.partial(run_tests, sandbox=test_sandbox, image=config.test_image)
         self.deploy_enabled = deploy_enabled
         self.allow_untested_deploy = allow_untested_deploy
         self.repo = Path(state.repo)

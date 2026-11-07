@@ -1,4 +1,4 @@
-.PHONY: check lint typecheck test format demo-repo
+.PHONY: check lint typecheck test format demo-repo docker-image
 
 DEMO ?= /tmp/devagent-demo
 
@@ -22,3 +22,6 @@ demo-repo:  ## copy the sample project into its own git repo to try devagent on
 	rm -rf $(DEMO) && cp -R examples/sample_repo $(DEMO)
 	cd $(DEMO) && git init -q -b main && git add -A && git -c user.name=demo -c user.email=demo@example.com commit -qm "sample project"
 	@echo "Demo repo ready: $(DEMO)"
+
+docker-image:  ## build the image used to sandbox test runs with Docker (Linux, or macOS with test_sandbox = "docker")
+	docker build -t devagent-tests:latest -f docker/tests.Dockerfile docker
