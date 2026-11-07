@@ -23,6 +23,7 @@ class Config(BaseModel):
     test_timeout: int = 900
     max_debug: int = 3
     remote: str = "origin"
+    pr_note: str | None = None  # extra text for the PR body, e.g. "Closes #12" (not shown to agents)
     # --- safety ---
     max_cost_usd: float = 5.0  # hard spending cap for one run (all stages together)
     sandbox: bool = True  # run agent Bash inside the OS sandbox

@@ -68,7 +68,7 @@ flowchart LR
 
 devagent gives AI agents a shell, so security is a core feature, not an afterthought. The full
 analysis is in **[docs/THREAT_MODEL.md](docs/THREAT_MODEL.md)**: assets, threat actors, trust boundaries,
-12 threats with their mitigations, evidence, and the known gaps.
+14 threats with their mitigations, evidence, and the known gaps.
 
 | Risk | Protection |
 |---|---|
@@ -98,6 +98,26 @@ solution. Details and method: [bench/](bench/).
 | **15/15** | $6.05 | $0.39 | 1.2 min | 0 |
 
 These are small, well-specified tasks, so 100% is a ceiling rather than a ranking. A harder tier is on the roadmap.
+
+## GitHub Action
+
+Label an issue `devagent`, and devagent opens a PR for it that says `Closes #<issue>`:
+
+```yaml
+- uses: actions/checkout@v5
+- uses: Khyalddinniazi/devagent@main
+  with:
+    task: |
+      ${{ github.event.issue.title }}
+
+      ${{ github.event.issue.body }}
+    pr-note: "Closes #${{ github.event.issue.number }}"
+    claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+```
+
+Issue text is untrusted, so the workflow checks that the labeler has write access, never puts issue text
+into a shell script, and passes it after `--` so it can't switch devagent options on. Both injection
+attacks are tested. The full workflow, setup and security model: [docs/GITHUB_ACTION.md](docs/GITHUB_ACTION.md).
 
 ## Quick start
 
@@ -172,8 +192,8 @@ The artifacts of each run (plan, each agent's summary, test report, debug log, s
 make check     # ruff lint + format check, mypy, pytest
 ```
 
-107 tests cover the pipeline (with a scripted fake runner), guards, test parsing, secret scanning, git
-operations against temporary repos, real `sandbox-exec` checks, the red-team suite and the fairness of every benchmark task. None of them
+112 tests cover the pipeline (with a scripted fake runner), guards, test parsing, secret scanning, git
+operations against temporary repos, real `sandbox-exec` checks, the red-team suite, the fairness of every benchmark task, and the GitHub Action's injection defences. None of them
 call the API. CI runs everything on Linux and macOS.
 
 ## Limitations
@@ -186,7 +206,7 @@ call the API. CI runs everything on Linux and macOS.
 
 - [x] Benchmark with hidden tests: 15/15 solved, $0.39 median per task
 - [ ] Harder benchmark tier: multi-file changes, vague bug reports, larger codebases
-- [ ] GitHub Action: label an issue → devagent opens a PR
+- [x] GitHub Action: label an issue → devagent opens a PR
 - [ ] Docker runner, which also gives sandboxed test runs on Linux
 
 ## License

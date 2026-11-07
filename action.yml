@@ -1,0 +1,101 @@
+name: devagent
+description: Turn a task (for example a GitHub issue) into a tested pull request using sandboxed Claude agents
+author: Khyalddinniazi
+branding:
+  icon: git-pull-request
+  color: orange
+
+inputs:
+  task:
+    description: What to build or fix, in plain English (for example the issue title and body)
+    required: true
+  max-cost:
+    description: Spending limit in USD for the whole run
+    default: "3"
+  model:
+    description: Model for every stage (default devagent's default)
+    default: ""
+  pr-note:
+    description: Text added to the PR body, for example "Closes #12"
+    default: ""
+  allow-untested:
+    description: Open a PR even when the repo has no test suite (labelled NOT TESTED)
+    default: "false"
+  anthropic-api-key:
+    description: Anthropic API key (or use claude-code-oauth-token)
+    default: ""
+  claude-code-oauth-token:
+    description: Claude Code token from `claude setup-token` (or use anthropic-api-key)
+    default: ""
+  github-token:
+    description: Token used to push the branch and open the PR
+    default: ${{ github.token }}
+
+outputs:
+  pr-url:
+    description: URL of the opened pull request (empty if none)
+    value: ${{ steps.run.outputs.pr-url }}
+  stage:
+    description: Last completed devagent stage (deployed = PR opened)
+    value: ${{ steps.run.outputs.stage }}
+  cost:
+    description: Total cost of the run in USD
+    value: ${{ steps.run.outputs.cost }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check runner
+      if: runner.os != 'macOS'
+      shell: bash
+      run: |
+        echo "::error::devagent's sandboxes are verified on macOS runners. Use 'runs-on: macos-latest'."
+        exit 1
+
+    - uses: astral-sh/setup-uv@v7
+
+    - name: Install devagent
+      shell: bash
+      run: |
+        uv venv -q -p 3.12 "$RUNNER_TEMP/devagent-venv"
+        uv pip install -q -p "$RUNNER_TEMP/devagent-venv" "$GITHUB_ACTION_PATH"
+
+    - name: Run devagent
+      id: run
+      shell: bash
+      # Untrusted text (the task) only ever goes through environment variables, never ${{ }} inside the
+      # script, so it can't inject shell commands. `--` stops it being read as a devagent option.
+      env:
+        TASK: ${{ inputs.task }}
+        MAX_COST: ${{ inputs.max-cost }}
+        MODEL: ${{ inputs.model }}
+        PR_NOTE: ${{ inputs.pr-note }}
+        ALLOW_UNTESTED: ${{ inputs.allow-untested }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-code-oauth-token }}
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        [ -n "$ANTHROPIC_API_KEY" ] || unset ANTHROPIC_API_KEY
+        [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] || unset CLAUDE_CODE_OAUTH_TOKEN
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        args=(run --repo . --yes --max-cost "$MAX_COST")
+        [ -n "$MODEL" ] && args+=(--model "$MODEL")
+        [ -n "$PR_NOTE" ] && args+=(--pr-note "$PR_NOTE")
+        [ "$ALLOW_UNTESTED" = "true" ] && args+=(--allow-untested)
+
+        set +e
+        "$RUNNER_TEMP/devagent-venv/bin/devagent" "${args[@]}" -- "$TASK"
+        code=$?
+        set -e
+
+        state=$(ls -t .devagent/*/state.json 2>/dev/null | head -1 || true)
+        if [ -n "$state" ]; then
+          {
+            echo "pr-url=$(jq -r '.pr_url // ""' "$state")"
+            echo "stage=$(jq -r '.stage' "$state")"
+            echo "cost=$(jq -r '[.costs[].cost_usd] | add // 0 | . * 100 | round / 100' "$state")"
+          } >> "$GITHUB_OUTPUT"
+        fi
+        exit $code

@@ -101,15 +101,16 @@ def run(
     ),
     allow_untested: bool = typer.Option(False, "--allow-untested", help="With --yes: allow deploying when nothing was tested"),
     no_sandbox: bool = typer.Option(False, "--no-sandbox", help="DANGEROUS: run agent commands and tests unsandboxed"),
+    pr_note: str | None = typer.Option(None, "--pr-note", help='Text added to the PR body, e.g. "Closes #12"'),
 ):
-    """Run the full pipeline for TASK."""
+    """Run the full pipeline for TASK. Put -- before a TASK that comes from untrusted text."""
     repo = repo.resolve()
     problems = deploy.preflight(repo, allow_dirty=allow_dirty, need_gh=not no_deploy)
     if problems:
         for p in problems:
             console.print(f"[red]✘[/] {p}")
         raise typer.Exit(2)
-    config = Config.load(repo, max_debug=max_debug, base_branch=base, test_command=test_command)
+    config = Config.load(repo, max_debug=max_debug, base_branch=base, test_command=test_command, pr_note=pr_note)
     if model:
         for stage in ("planner", "coder", "tester", "debugger", "writer"):
             getattr(config, stage).model = model

@@ -284,6 +284,8 @@ class Pipeline:
                 "> [!WARNING]\n> This project has no automated tests, so this change was **not tested "
                 "automatically**. Please check it manually before merging.\n\n"
             ) + body
+        if self.config.pr_note:
+            body += f"\n\n{self.config.pr_note}"
         return body + f"\n\n---\n🤖 Generated with devagent (run `{self.state.run_id}`) using the Claude Agent SDK"
 
     # -- driver ---------------------------------------------------------------

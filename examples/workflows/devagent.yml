@@ -1,0 +1,77 @@
+# Copy this file to .github/workflows/devagent.yml in the repository devagent should work on.
+# Then add the label "devagent" to an issue: devagent plans, codes, tests and opens a PR for it.
+# Setup and security notes: https://github.com/Khyalddinniazi/devagent/blob/main/docs/GITHUB_ACTION.md
+name: devagent
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  contents: write # push the devagent/* branch
+  pull-requests: write # open the PR
+  issues: write # comment on the issue
+
+concurrency:
+  group: devagent-issue-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  devagent:
+    if: github.event.label.name == 'devagent'
+    runs-on: macos-latest # devagent's sandboxes are verified on macOS
+    timeout-minutes: 45
+    steps:
+      - name: Only people with write access can start devagent
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SENDER: ${{ github.event.sender.login }}
+        run: |
+          perm=$(gh api "repos/$REPO/collaborators/$SENDER/permission" --jq .permission)
+          if [ "$perm" != "admin" ] && [ "$perm" != "write" ]; then
+            echo "::error::$SENDER has '$perm' access; write access is required to start devagent."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v5
+
+      - name: devagent
+        id: devagent
+        uses: Khyalddinniazi/devagent@main
+        with:
+          # `with:` values are not run by a shell, so the issue text is passed safely.
+          task: |
+            ${{ github.event.issue.title }}
+
+            ${{ github.event.issue.body }}
+          pr-note: "Closes #${{ github.event.issue.number }}"
+          max-cost: "3"
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+      - name: Comment on the issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+          PR_URL: ${{ steps.devagent.outputs.pr-url }}
+          COST: ${{ steps.devagent.outputs.cost }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$PR_URL" ]; then
+            body="🤖 devagent opened $PR_URL (cost: \$${COST:-?}). Please review it before merging."
+          else
+            body="🤖 devagent couldn't finish this one. Logs and the plan are in $RUN_URL"
+          fi
+          gh issue comment "$ISSUE" --repo "$REPO" --body "$body"
+
+      - name: Keep the plan and agent notes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devagent-run
+          path: .devagent/
+          include-hidden-files: true
+          if-no-files-found: ignore

@@ -210,6 +210,28 @@ async def test_untested_pr_body_has_warning(git_repo, monkeypatch):
     assert "not tested" in opened["body"].lower()
 
 
+async def test_pr_note_is_added_to_pr_body_but_not_to_agents(git_repo, monkeypatch):
+    opened = {}
+    monkeypatch.setattr(
+        deploy, "push_and_open_pr", lambda repo, b, base, t, body, remote="origin": opened.update(body=body) or "u"
+    )
+    p, runner, _ = make(git_repo, {"coder": edit_code}, scripted_tests(True), deploy_ok=True, pr_note="Closes #12")
+    await p.run()
+    assert "Closes #12" in opened["body"]
+    assert not any("Closes #12" in prompt for _, prompt in runner.calls)
+
+
+def test_task_after_double_dash_is_never_an_option():
+    # The GitHub Action passes issue text as the task; `--` stops it being read as a flag like --no-sandbox.
+    import typer
+
+    from devagent.cli import app
+
+    run = typer.main.get_command(app).commands["run"]
+    params = run.make_context("run", ["--repo", ".", "--yes", "--", "--no-sandbox"]).params
+    assert params["task"] == "--no-sandbox" and params["no_sandbox"] is False
+
+
 async def test_spending_limit_stops_run(git_repo):
     p, runner, _ = make(git_repo, {"coder": edit_code}, scripted_tests(True), max_cost_usd=1.0)
     runner.handlers["planner"] = lambda r, pr: StageResult(PLAN, cost_usd=0.98, turns=1)
