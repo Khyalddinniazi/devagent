@@ -49,6 +49,10 @@ Plans and agent notes are uploaded as a workflow artifact (`devagent-run`) for r
 
 ## Limits
 
+- **Test tools:** the project's tests run with devagent's own Python, which comes with `pytest`. If your
+  tests need more packages, add them: `python-packages: "pytest requests"`. If the test runner itself
+  can't start, devagent stops with "setup problem" instead of paying the Debugger to try to fix code
+  that isn't broken.
 - **Runs on macOS runners**, where devagent's sandboxes are verified. macOS minutes are free for public
   repositories. On private repositories they use your Actions minutes at 10× the Linux rate.
 - **CI doesn't run automatically on the PR.** This is GitHub's rule for PRs opened with the default

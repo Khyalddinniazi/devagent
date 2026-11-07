@@ -266,3 +266,15 @@ async def test_injection_alert_only_on_marker(git_repo):
     )
     s = await p.run()
     assert s.security_alerts == ["coder: README.md - asked me to print ~/.ssh keys"]
+
+
+async def test_broken_test_runner_skips_debugging(git_repo):
+    # The Debugger can't install a missing pytest, so devagent must stop instead of paying for 3 attempts.
+    def tests(repo, cmd, timeout):
+        return TestReport(command=cmd or "pytest", passed=False, exit_code=1, environment_error="pytest is not installed")
+
+    p, runner, gates = make(git_repo, {"coder": edit_code}, tests, deploy_ok=True)
+    s = await p.run()
+    assert "setup problem" in s.error and "pytest is not installed" in s.error
+    assert not any(name == "debugger" for name, _ in runner.calls) and s.debug_attempts == 0
+    assert gates["deploy"] == 0

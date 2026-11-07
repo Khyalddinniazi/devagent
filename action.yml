@@ -18,6 +18,9 @@ inputs:
   pr-note:
     description: Text added to the PR body, for example "Closes #12"
     default: ""
+  python-packages:
+    description: Extra packages installed next to devagent for running the project's tests (space-separated)
+    default: "pytest"
   allow-untested:
     description: Open a PR even when the repo has no test suite (labelled NOT TESTED)
     default: "false"
@@ -56,9 +59,13 @@ runs:
 
     - name: Install devagent
       shell: bash
+      env:
+        PYTHON_PACKAGES: ${{ inputs.python-packages }}
       run: |
         uv venv -q -p 3.12 "$RUNNER_TEMP/devagent-venv"
-        uv pip install -q -p "$RUNNER_TEMP/devagent-venv" "$GITHUB_ACTION_PATH"
+        # The project's tests run with this Python (see detect_test_command), so it needs a test runner too.
+        read -ra extra <<< "$PYTHON_PACKAGES"
+        uv pip install -q -p "$RUNNER_TEMP/devagent-venv" "$GITHUB_ACTION_PATH" "${extra[@]}"
 
     - name: Run devagent
       id: run

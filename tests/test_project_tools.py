@@ -35,3 +35,17 @@ def test_run_sample_repo(tmp_path):
     (repo / "tests" / "test_bad.py").write_text("def test_bad():\n    assert 1 == 2\n")
     report = run_tests(repo, f"{sys.executable} -m pytest -q -rf")
     assert not report.passed and report.failures[0].test.endswith("test_bad")
+
+
+def test_missing_test_runner_is_an_environment_error():
+    # Seen on a real GitHub runner: devagent's Python had no pytest installed.
+    r = _parse("/venv/bin/python -m pytest -q -rf", 1, "/venv/bin/python: No module named pytest\n")
+    assert not r.passed and r.environment_error == "pytest is not installed"
+    assert r.summary().startswith("TEST RUNNER BROKEN")
+    assert _parse("npm test", 127, "sh: npm: command not found").environment_error == "test command not found"
+
+
+def test_missing_project_module_is_a_code_error():
+    # A missing module of the project itself is something the agents can fix: keep debugging.
+    out = "E   ModuleNotFoundError: No module named 'textkit.extra'\n1 error in 0.1s"
+    assert _parse("python -m pytest -q", 2, out).environment_error is None

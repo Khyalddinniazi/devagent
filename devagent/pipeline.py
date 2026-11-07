@@ -309,6 +309,14 @@ class Pipeline:
                 report = self._test()
             else:
                 report = None
+            if report is not None and report.environment_error:
+                s.error = (
+                    f"the test command can't run: {report.environment_error}. That's a setup problem, not a code "
+                    "problem, so devagent didn't try to debug it. Fix the environment or pass --test-command."
+                )
+                s.save()
+                self._log(f"[bold red]✘ {s.error}[/]\nChanges left uncommitted for inspection.")
+                return s
             if report is not None:
                 report = await self.debug_loop(report)
                 if not report.passed:

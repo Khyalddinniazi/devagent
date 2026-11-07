@@ -40,6 +40,7 @@ class TestReport:
     raw_tail: str = ""
     skipped: bool = False  # no real test suite was run - nothing was verified
     sandboxed: bool = False
+    environment_error: str | None = None  # the test runner itself couldn't start (not a code problem)
 
     def to_json(self) -> str:
         return json.dumps(asdict(self), indent=2)
@@ -47,6 +48,8 @@ class TestReport:
     def summary(self) -> str:
         if self.skipped:
             return "NOT TESTED (no test suite found) - check the result yourself"
+        if self.environment_error:
+            return f"TEST RUNNER BROKEN ({self.environment_error}) via `{self.command}`"
         if self.passed:
             counts = f" ({self.num_passed} passed)" if self.num_passed is not None else ""
             return f"PASSED{counts} via `{self.command}`"
@@ -83,8 +86,19 @@ _PYTEST_FAILED = re.compile(r"^(?:FAILED|ERROR) (\S+)(?: - (.*))?$", re.M)
 _PYTEST_COUNTS = re.compile(r"(\d+) (passed|failed|error|errors)\b")
 
 
+def _environment_error(command: str, code: int, output: str) -> str | None:
+    """Detect a test runner that can't start at all. Changing the code can't fix that, so don't debug it."""
+    runner = re.search(r"-m\s+([\w.]+)", command)
+    if runner and re.search(rf"No module named '?{re.escape(runner.group(1))}'?(\s|$)", output):
+        return f"{runner.group(1)} is not installed"
+    if code == 127 or "command not found" in output:
+        return "test command not found"
+    return None
+
+
 def _parse(command: str, code: int, output: str) -> TestReport:
     report = TestReport(command=command, passed=code == 0, exit_code=code, raw_tail=output[-TAIL_CHARS:])
+    report.environment_error = None if code == 0 else _environment_error(command, code, output)
     if "pytest" in command:
         counts: dict[str, int] = {}
         for n, kind in _PYTEST_COUNTS.findall(output):
