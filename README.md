@@ -18,7 +18,7 @@ you say yes. It never merges; that stays your decision.
 
 ![devagent demo: a one-sentence task becomes a plan, code and passing tests in about a minute](docs/demo.gif)
 
-<sub>A real run, sped up 2×: plan → approve → code → tests (9 passed) for $0.41. Recorded with [VHS](https://github.com/charmbracelet/vhs) from [docs/demo.tape](docs/demo.tape).</sub>
+<sub>A real run, sped up 2×: plan → approve → code → tests (7 passed) for $0.32. Recorded with [VHS](https://github.com/charmbracelet/vhs) from [docs/demo.tape](docs/demo.tape).</sub>
 
 ### 👀 See it in action
 
