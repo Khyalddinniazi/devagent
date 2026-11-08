@@ -51,7 +51,7 @@ Plans and agent notes are uploaded as a workflow artifact (`devagent-run`) for r
 
 2026-11-07, on a practice repository: the issue "Add an is_palindrome(text) function" was labelled
 `devagent`, and the Action opened a PR with the function and 6 new tests that says `Closes #1`. It also
-commented the link on the issue. The run took 1 min 25 s and cost $0.41.
+commented the link on the issue. The run took 1 min 25 s and cost $0.41 (API-equivalent; it ran on a Claude subscription token).
 
 The first live attempt failed, which led to two fixes: the runner had no `pytest`, and the Debugger
 spent three attempts trying to fix code that wasn't broken. devagent now stops early when the test

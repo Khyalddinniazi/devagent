@@ -112,6 +112,11 @@ solution. Details and method: [bench/](bench/).
 
 These are small, well-specified tasks, so 100% is a ceiling rather than a ranking. A harder tier is on the roadmap.
 
+> **About costs:** every dollar amount in this project is the **API-equivalent cost** reported by the
+> Claude Agent SDK (tokens used × Anthropic's API prices). With an `ANTHROPIC_API_KEY`, that's what a run
+> costs. With a Claude subscription, runs are included in the plan and count toward its usage limits
+> instead. `--max-cost` uses the same estimate, so it caps a run either way.
+
 ## GitHub Action
 
 Label an issue `devagent`, and devagent opens a PR for it that says `Closes #<issue>`:

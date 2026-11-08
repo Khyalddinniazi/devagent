@@ -43,7 +43,8 @@ logs are kept in `.work/` for inspection.
 ## Results
 
 Run on 2026-11-07, model `claude-opus-5-5`, spending limit $2 per task
-([full table](results/20261107-144315.md), [raw data](results/20261107-144315.json)):
+([full table](results/20261107-144315.md), [raw data](results/20261107-144315.json)).
+Costs are API-equivalent, as reported by the Claude Agent SDK (see the note in the [main README](../README.md#benchmark)):
 
 | Metric | Value |
 |---|---|
