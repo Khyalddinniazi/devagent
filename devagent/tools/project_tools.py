@@ -58,12 +58,17 @@ class TestReport:
         if self.skipped:
             return "NOT TESTED (no test suite found) - check the result yourself"
         if self.environment_error:
-            return f"TEST RUNNER BROKEN ({self.environment_error}) via `{self.command}`"
+            return f"TEST RUNNER BROKEN ({self.environment_error}) via `{_display(self.command)}`"
         if self.passed:
             counts = f" ({self.num_passed} passed)" if self.num_passed is not None else ""
-            return f"PASSED{counts} via `{self.command}`"
+            return f"PASSED{counts} via `{_display(self.command)}`"
         names = ", ".join(f.test for f in self.failures[:5]) or "see output"
-        return f"FAILED (exit {self.exit_code}, {self.num_failed or '?'} failed: {names}) via `{self.command}`"
+        return f"FAILED (exit {self.exit_code}, {self.num_failed or '?'} failed: {names}) via `{_display(self.command)}`"
+
+
+def _display(command: str) -> str:
+    """Shorten a leading interpreter path for display, so output doesn't show local folders or the username."""
+    return re.sub(r"^\S*/(python[\d.]*)(?=\s|$)", r"\1", command)
 
 
 def detect_test_command(repo: Path) -> str | None:

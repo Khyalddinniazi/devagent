@@ -16,6 +16,10 @@ devagent plans the change, waits for you to approve the plan, writes the code, w
 them and fixes failures. It then shows you every file it changed and opens a pull request only after
 you say yes. It never merges; that stays your decision.
 
+![devagent demo: a one-sentence task becomes a plan, code and passing tests in about a minute](docs/demo.gif)
+
+<sub>A real run, sped up 2×: plan → approve → code → tests (9 passed) for $0.41. Recorded with [VHS](https://github.com/charmbracelet/vhs) from [docs/demo.tape](docs/demo.tape).</sub>
+
 ### 👀 See it in action
 
 A live demo in a public practice repo: the issue was labelled `devagent`, and the GitHub Action did the rest
@@ -26,8 +30,6 @@ in **1 min 25 s for $0.41**.
 | 📝 The issue | [Add an is_palindrome(text) function (#1)](https://github.com/Khyalddinniazi/devagent-action-test/issues/1), with devagent's comment linking the PR |
 | 🔀 The PR devagent opened | [#2](https://github.com/Khyalddinniazi/devagent-action-test/pull/2): the function, 6 new tests and a note for reviewers. It says `Closes #1` |
 | ✅ The workflow run | [Green run on a macOS runner](https://github.com/Khyalddinniazi/devagent-action-test/actions/runs/42425367002) |
-
-<!-- DEMO VIDEO GOES HERE -->
 
 ## Why
 

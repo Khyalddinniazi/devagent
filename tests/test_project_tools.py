@@ -49,3 +49,10 @@ def test_missing_project_module_is_a_code_error():
     # A missing module of the project itself is something the agents can fix: keep debugging.
     out = "E   ModuleNotFoundError: No module named 'textkit.extra'\n1 error in 0.1s"
     assert _parse("python -m pytest -q", 2, out).environment_error is None
+
+
+def test_summary_hides_local_interpreter_path():
+    r = _parse("/Users/someone/proj/.venv/bin/python -m pytest -q -rf", 0, "3 passed in 0.1s")
+    assert r.summary() == "PASSED (3 passed) via `python -m pytest -q -rf`"
+    assert r.command.startswith("/Users/someone/")  # the report keeps the full command for re-running
+    assert "npm test" in _parse("npm test", 0, "").summary()
